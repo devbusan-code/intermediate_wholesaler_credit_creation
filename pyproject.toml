@@ -1,0 +1,11 @@
+[project]
+name = "intermediate-wholesaler-credit-creation"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pymssql>=2.3.8",
+    "pymysql>=1.1.2",
+    "python-dotenv>=1.2.1",
+]

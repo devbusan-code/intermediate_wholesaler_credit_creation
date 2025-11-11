@@ -1,0 +1,1 @@
+nohup uv run main.py > /dev/null 2>&1 &
