@@ -1,11 +1,11 @@
 # install dependencies:
-# uv add python-dotenv pymssql pymysql
+# uv add python-dotenv pymssql pymysql pyodbc
 
 from logger_kki import LoggerKKI
 import os
 from dotenv import load_dotenv
-import pymssql
 import pymysql
+import pyodbc
 
 
 # kki_logger.py에서 logger 객체를 가져옵니다.
@@ -14,14 +14,19 @@ logger = LoggerKKI(logging_interval="Y").get_logger()
 # .env 파일 로드
 load_dotenv()
 
-# MSSQL 접속 정보 (환경변수에서 불러오기)
+# MSSQL 접속 정보 (ODBC)
 mssql_config = {
-    'server': os.getenv('MSSQL_SERVER'),
-    'port': int(os.getenv('MSSQL_PORT', 1433)),  # 기본 포트: 1433
-    'user': os.getenv('MSSQL_USER'),
-    'password': os.getenv('MSSQL_PASSWORD'),
-    'database': os.getenv('MSSQL_DATABASE'),
-    'charset': 'cp949'  # <- Korean_Wansung_CI_AS 대응
+    "server": os.getenv("MSSQL_SERVER"),
+    "port": int(os.getenv("MSSQL_PORT", 1433)),
+    "user": os.getenv("MSSQL_USER"),
+    "password": os.getenv("MSSQL_PASSWORD"),
+    "database": os.getenv("MSSQL_DATABASE"),
+    'charset': os.getenv("MSSQL_CHARSET"),  # <- Korean_Wansung_CI_AS 대응    
+    "driver": os.getenv("MSSQL_DRIVER", "ODBC Driver 18 for SQL Server"),
+    "encrypt": os.getenv("MSSQL_ENCRYPT", "yes"),
+    "trust_server_certificate": os.getenv("MSSQL_TRUST_SERVER_CERT", "yes"),
+    "login_timeout": int(os.getenv("MSSQL_LOGIN_TIMEOUT", 15)),
+    "query_timeout": int(os.getenv("MSSQL_QUERY_TIMEOUT", 30)),
 }
 
 # MySQL 접속 정보 (환경변수에서 불러오기)
@@ -34,6 +39,7 @@ mysql_config = {
     'charset': 'utf8'
 }
 
+
 ###############################################################################################################################
 # MSSQL에서 데이터 조회
 ###############################################################################################################################
@@ -42,7 +48,15 @@ def fetch_from_mssql():
     cursor = None
 
     try:
-        conn = pymssql.connect(**mssql_config)
+        conn_str = (
+            f"DRIVER={{{mssql_config['driver']}}};"
+            f"SERVER={mssql_config['server']},{mssql_config['port']};"
+            f"DATABASE={mssql_config['database']};"
+            f"UID={mssql_config['user']};PWD={mssql_config['password']};"
+            f"Encrypt={mssql_config['encrypt']};"
+            f"TrustServerCertificate={mssql_config['trust_server_certificate']};"
+        )
+        conn = pyodbc.connect(conn_str, timeout=mssql_config["login_timeout"])
         cursor = conn.cursor()
         query = (
             """
@@ -59,9 +73,9 @@ def fetch_from_mssql():
         )
         cursor.execute(query)
         rows = cursor.fetchall()
-        return rows
+        return [tuple(row) for row in rows]
 
-    except pymssql.DatabaseError as db_err:
+    except pyodbc.Error as db_err:
         logger.error(f"MSSQL 데이터베이스 오류 발생: {db_err}")
         return []
 
@@ -75,6 +89,7 @@ def fetch_from_mssql():
             cursor.close()
         if conn:
             conn.close()
+
 
 ###############################################################################################################################
 # MySQL에 데이터 삽입
